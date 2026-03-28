@@ -10,7 +10,7 @@
 
   <ItemGroup>
   <PackageReference Include="Telegram.Bot" Version="22.9.5.3" />
-  <PackageReference Include="MЫicrosoft.Data.Sqlite" Version="8.0.0" />
+  <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
   <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.6" />
   </ItemGroup>
 
