@@ -13,7 +13,7 @@ namespace TGBotV11
 {
     class Program
     {
-        static TelegramBotClient bot = new TelegramBotClient("BOT_TOKEN");
+        static TelegramBotClient bot;
 
         static Dictionary<long, string> userStates = new Dictionary<long, string>();
         static Dictionary<long, List<string>> userWorkouts = new Dictionary<long, List<string>>();
@@ -21,7 +21,14 @@ namespace TGBotV11
 
         static void Main(string[] args)
         {
+            var token = Environment.GetEnvironmentVariable("BOT_TOKEN");
+
+            Console.WriteLine("TOKEN: " + token);
+
+            bot = new TelegramBotClient(token);
+
             LoadData();
+
             bot.StartReceiving(HandleUpdate, HandleError);
 
             Console.WriteLine("Бот запущен...");
