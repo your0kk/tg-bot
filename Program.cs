@@ -29,7 +29,14 @@ namespace TGBotV11
 
             LoadData();
 
-            bot.StartReceiving(HandleUpdate, HandleError);
+            bot.StartReceiving
+                updateHandler: HandleUpdate,
+                pollingErrorHandler: HandleError,
+                receiverOptions: new ReceiverOptions
+                {
+                    AllowedUpdates = Array.Empty<UpdateType>()
+                }
+                );
 
             Console.WriteLine("Бот запущен...");
             Console.ReadLine();
