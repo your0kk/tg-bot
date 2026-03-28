@@ -1,25 +1,18 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
-using System.IO;
-using System.Text.Json;
+using Microsoft.Data.Sqlite;
 
 namespace TGBotV11
 {
     class Program
     {
         static TelegramBotClient bot;
-
-        static Dictionary<long, string> userStates = new();
-        static Dictionary<long, List<string>> userWorkouts = new();
-        static Dictionary<long, int> userGoals = new();
-
-        static string filePath = "data.json";
+        static string connectionString = "Data Source=fitness.db";
 
         static async Task Main(string[] args)
         {
@@ -27,15 +20,37 @@ namespace TGBotV11
 
             bot = new TelegramBotClient(token);
 
-            LoadData();
+            InitDatabase();
 
             bot.StartReceiving(HandleUpdate, HandleError);
 
             Console.WriteLine("Бот запущен...");
-
             await Task.Delay(-1);
         }
 
+        // 📦 СОЗДАНИЕ БАЗЫ
+        static void InitDatabase()
+        {
+            using var connection = new SqliteConnection(connectionString);
+            connection.Open();
+
+            var command = connection.CreateCommand();
+
+            command.CommandText =
+            @"
+            CREATE TABLE IF NOT EXISTS workouts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                userId INTEGER,
+                date TEXT,
+                name TEXT,
+                minutes INTEGER
+            );
+            ";
+
+            command.ExecuteNonQuery();
+        }
+
+        // 📩 ОБРАБОТКА СООБЩЕНИЙ
         static async Task HandleUpdate(ITelegramBotClient botClient, Update update, CancellationToken ct)
         {
             if (update.Type != UpdateType.Message || update.Message?.Text == null)
@@ -47,10 +62,7 @@ namespace TGBotV11
             var keyboard = new ReplyKeyboardMarkup(new[]
             {
                 new KeyboardButton[] { "🏋️ Добавить тренировку" },
-                new KeyboardButton[] { "📊 Мои отчёты" },
-                new KeyboardButton[] { "📈 Статистика" },
-                new KeyboardButton[] { "🎯 Моя цель" },
-                new KeyboardButton[] { "🗑️ Удалить последнюю" }
+                new KeyboardButton[] { "📊 Мои отчёты" }
             })
             {
                 ResizeKeyboard = true
@@ -62,142 +74,80 @@ namespace TGBotV11
                 return;
             }
 
-            // 🎯 цель
-            if (text == "🎯 Моя цель")
-            {
-                userStates[chatId] = "waiting_goal";
-                await botClient.SendMessage(chatId, "Сколько тренировок в неделю твоя цель?");
-                return;
-            }
-
-            if (userStates.ContainsKey(chatId) && userStates[chatId] == "waiting_goal")
-            {
-                if (int.TryParse(text, out int goal))
-                {
-                    userGoals[chatId] = goal;
-                    userStates[chatId] = "";
-
-                    await botClient.SendMessage(chatId, $"Цель установлена: {goal} тренировок 🎯");
-                }
-                else
-                {
-                    await botClient.SendMessage(chatId, "Введи число");
-                }
-                return;
-            }
-
-            // ➕ Добавить тренировку
+            // ➕ ДОБАВИТЬ ТРЕНИРОВКУ
             if (text == "🏋️ Добавить тренировку")
             {
-                userStates[chatId] = "waiting_workout";
-                await botClient.SendMessage(chatId, "Что ты тренировал?");
+                await botClient.SendMessage(chatId, "Напиши: упражнение минуты\n\nПример:\nГрудь 60");
                 return;
             }
 
-            if (userStates.ContainsKey(chatId) && userStates[chatId] == "waiting_workout")
+            // 👉 СОХРАНЕНИЕ
+            if (text.Contains(" "))
             {
-                userStates[chatId] = "waiting_time";
+                var parts = text.Split(' ');
 
-                if (!userWorkouts.ContainsKey(chatId))
-                    userWorkouts[chatId] = new List<string>();
-
-                userWorkouts[chatId].Add(text);
-
-                await botClient.SendMessage(chatId, "Сколько минут?");
-                return;
-            }
-
-            if (userStates.ContainsKey(chatId) && userStates[chatId] == "waiting_time")
-            {
-                if (!int.TryParse(text, out int minutes))
+                if (parts.Length == 2 && int.TryParse(parts[1], out int minutes))
                 {
-                    await botClient.SendMessage(chatId, "Введи число!");
+                    string name = parts[0];
+                    string date = DateTime.Now.ToString("dd.MM");
+
+                    using var connection = new SqliteConnection(connectionString);
+                    connection.Open();
+
+                    var command = connection.CreateCommand();
+                    command.CommandText =
+                    @"
+                    INSERT INTO workouts (userId, date, name, minutes)
+                    VALUES ($userId, $date, $name, $minutes);
+                    ";
+
+                    command.Parameters.AddWithValue("$userId", chatId);
+                    command.Parameters.AddWithValue("$date", date);
+                    command.Parameters.AddWithValue("$name", name);
+                    command.Parameters.AddWithValue("$minutes", minutes);
+
+                    command.ExecuteNonQuery();
+
+                    await botClient.SendMessage(chatId, "Тренировка сохранена ✅", replyMarkup: keyboard);
                     return;
                 }
-
-                var lastIndex = userWorkouts[chatId].Count - 1;
-                string date = DateTime.Now.ToString("dd.MM");
-
-                userWorkouts[chatId][lastIndex] =
-                    $"{date}|{userWorkouts[chatId][lastIndex]}|{minutes}";
-
-                userStates[chatId] = "";
-                SaveData();
-
-                await botClient.SendMessage(chatId, "Сохранено ✅", replyMarkup: keyboard);
-                return;
             }
 
-            // 📊 отчёты
+            // 📊 ОТЧЕТ
             if (text == "📊 Мои отчёты")
             {
-                if (!userWorkouts.ContainsKey(chatId) || userWorkouts[chatId].Count == 0)
-                {
-                    await botClient.SendMessage(chatId, "Нет тренировок");
-                    return;
-                }
+                using var connection = new SqliteConnection(connectionString);
+                connection.Open();
 
-                string report = "";
+                var command = connection.CreateCommand();
+                command.CommandText =
+                @"
+                SELECT date, name, minutes
+                FROM workouts
+                WHERE userId = $userId;
+                ";
 
+                command.Parameters.AddWithValue("$userId", chatId);
+
+                using var reader = command.ExecuteReader();
+
+                string report = "Твои тренировки:\n\n";
                 int i = 1;
-                foreach (var w in userWorkouts[chatId])
+
+                while (reader.Read())
                 {
-                    var parts = w.Split('|');
-                    report += $"{i}) {parts[0]} — {parts[1]} — {parts[2]} мин\n";
+                    string date = reader.GetString(0);
+                    string name = reader.GetString(1);
+                    int minutes = reader.GetInt32(2);
+
+                    report += $"{i}) {date} — {name} — {minutes} мин\n";
                     i++;
                 }
 
+                if (i == 1)
+                    report = "У тебя пока нет тренировок";
+
                 await botClient.SendMessage(chatId, report);
-                return;
-            }
-
-            // 📈 статистика
-            if (text == "📈 Статистика")
-            {
-                if (!userWorkouts.ContainsKey(chatId) || userWorkouts[chatId].Count == 0)
-                {
-                    await botClient.SendMessage(chatId, "Нет данных");
-                    return;
-                }
-
-                int total = userWorkouts[chatId].Count;
-                int totalMinutes = 0;
-
-                foreach (var w in userWorkouts[chatId])
-                {
-                    var parts = w.Split('|');
-                    if (int.TryParse(parts[2], out int m))
-                        totalMinutes += m;
-                }
-
-                int goal = userGoals.ContainsKey(chatId) ? userGoals[chatId] : 0;
-
-                string stats = $"📈 Статистика:\n\n" +
-                               $"Тренировок: {total}\n" +
-                               $"Минут: {totalMinutes}";
-
-                if (goal > 0)
-                {
-                    stats += $"\nЦель: {goal}\nПрогресс: {total}/{goal}";
-                }
-
-                await botClient.SendMessage(chatId, stats);
-                return;
-            }
-
-            // 🗑️ удалить
-            if (text == "🗑️ Удалить последнюю")
-            {
-                if (!userWorkouts.ContainsKey(chatId) || userWorkouts[chatId].Count == 0)
-                {
-                    await botClient.SendMessage(chatId, "Нечего удалять");
-                    return;
-                }
-
-                userWorkouts[chatId].RemoveAt(userWorkouts[chatId].Count - 1);
-                SaveData();
-
-                await botClient.SendMessage(chatId, "Удалено 🗑️");
                 return;
             }
         }
@@ -206,22 +156,6 @@ namespace TGBotV11
         {
             Console.WriteLine(exception.Message);
             return Task.CompletedTask;
-        }
-
-        static void SaveData()
-        {
-            var json = JsonSerializer.Serialize(userWorkouts);
-            File.WriteAllText(filePath, json);
-        }
-
-        static void LoadData()
-        {
-            if (File.Exists(filePath))
-            {
-                var json = File.ReadAllText(filePath);
-                userWorkouts = JsonSerializer.Deserialize<Dictionary<long, List<string>>>(json)
-                               ?? new Dictionary<long, List<string>>();
-            }
         }
     }
 }
