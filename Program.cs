@@ -3,33 +3,33 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Telegram.Bot;
-using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 using System.IO;
 using System.Text.Json;
+
 namespace TGBotV11
 {
     class Program
     {
         static TelegramBotClient bot;
 
-        static Dictionary<long, string> userStates = new Dictionary<long, string>();
-        static Dictionary<long, List<string>> userWorkouts = new Dictionary<long, List<string>>();
+        static Dictionary<long, string> userStates = new();
+        static Dictionary<long, List<string>> userWorkouts = new();
+        static Dictionary<long, int> userGoals = new();
+
         static string filePath = "data.json";
 
         static async Task Main(string[] args)
         {
             var token = Environment.GetEnvironmentVariable("BOT_TOKEN");
 
-            Console.WriteLine("TOKEN: " + token);
-
             bot = new TelegramBotClient(token);
 
             LoadData();
 
-            bot.StartReceiving(HandleUpdate,HandleError);
+            bot.StartReceiving(HandleUpdate, HandleError);
 
             Console.WriteLine("Бот запущен...");
 
@@ -38,7 +38,6 @@ namespace TGBotV11
 
         static async Task HandleUpdate(ITelegramBotClient botClient, Update update, CancellationToken ct)
         {
-            Console.WriteLine("Пришло сообщение");
             if (update.Type != UpdateType.Message || update.Message?.Text == null)
                 return;
 
@@ -50,6 +49,7 @@ namespace TGBotV11
                 new KeyboardButton[] { "🏋️ Добавить тренировку" },
                 new KeyboardButton[] { "📊 Мои отчёты" },
                 new KeyboardButton[] { "📈 Статистика" },
+                new KeyboardButton[] { "🎯 Моя цель" },
                 new KeyboardButton[] { "🗑️ Удалить последнюю" }
             })
             {
@@ -62,6 +62,30 @@ namespace TGBotV11
                 return;
             }
 
+            // 🎯 цель
+            if (text == "🎯 Моя цель")
+            {
+                userStates[chatId] = "waiting_goal";
+                await botClient.SendMessage(chatId, "Сколько тренировок в неделю твоя цель?");
+                return;
+            }
+
+            if (userStates.ContainsKey(chatId) && userStates[chatId] == "waiting_goal")
+            {
+                if (int.TryParse(text, out int goal))
+                {
+                    userGoals[chatId] = goal;
+                    userStates[chatId] = "";
+
+                    await botClient.SendMessage(chatId, $"Цель установлена: {goal} тренировок 🎯");
+                }
+                else
+                {
+                    await botClient.SendMessage(chatId, "Введи число");
+                }
+                return;
+            }
+
             // ➕ Добавить тренировку
             if (text == "🏋️ Добавить тренировку")
             {
@@ -70,7 +94,6 @@ namespace TGBotV11
                 return;
             }
 
-            // ввод тренировки
             if (userStates.ContainsKey(chatId) && userStates[chatId] == "waiting_workout")
             {
                 userStates[chatId] = "waiting_time";
@@ -79,26 +102,29 @@ namespace TGBotV11
                     userWorkouts[chatId] = new List<string>();
 
                 userWorkouts[chatId].Add(text);
-                
 
-                await botClient.SendMessage(chatId, "Сколько длилась тренировка (в минутах)?");
+                await botClient.SendMessage(chatId, "Сколько минут?");
                 return;
             }
 
-            // ввод времени
             if (userStates.ContainsKey(chatId) && userStates[chatId] == "waiting_time")
             {
-                var lastIndex = userWorkouts[chatId].Count - 1;
+                if (!int.TryParse(text, out int minutes))
+                {
+                    await botClient.SendMessage(chatId, "Введи число!");
+                    return;
+                }
 
+                var lastIndex = userWorkouts[chatId].Count - 1;
                 string date = DateTime.Now.ToString("dd.MM");
 
                 userWorkouts[chatId][lastIndex] =
-                    $"{date} — {userWorkouts[chatId][lastIndex]} — {text} мин";
+                    $"{date}|{userWorkouts[chatId][lastIndex]}|{minutes}";
 
                 userStates[chatId] = "";
                 SaveData();
 
-                await botClient.SendMessage(chatId, "Тренировка сохранена ✅", replyMarkup: keyboard);
+                await botClient.SendMessage(chatId, "Сохранено ✅", replyMarkup: keyboard);
                 return;
             }
 
@@ -107,16 +133,17 @@ namespace TGBotV11
             {
                 if (!userWorkouts.ContainsKey(chatId) || userWorkouts[chatId].Count == 0)
                 {
-                    await botClient.SendMessage(chatId, "У тебя пока нет тренировок");
+                    await botClient.SendMessage(chatId, "Нет тренировок");
                     return;
                 }
 
-                string report = "Твои тренировки:\n\n";
+                string report = "";
 
                 int i = 1;
                 foreach (var w in userWorkouts[chatId])
                 {
-                    report += i + ") " + w + "\n";
+                    var parts = w.Split('|');
+                    report += $"{i}) {parts[0]} — {parts[1]} — {parts[2]} мин\n";
                     i++;
                 }
 
@@ -129,7 +156,7 @@ namespace TGBotV11
             {
                 if (!userWorkouts.ContainsKey(chatId) || userWorkouts[chatId].Count == 0)
                 {
-                    await botClient.SendMessage(chatId, "Нет данных для статистики");
+                    await botClient.SendMessage(chatId, "Нет данных");
                     return;
                 }
 
@@ -138,20 +165,27 @@ namespace TGBotV11
 
                 foreach (var w in userWorkouts[chatId])
                 {
-                    var parts = w.Split(' ');
-                    int minutes = int.Parse(parts[^2]); // берём число перед "мин"
-                    totalMinutes += minutes;
+                    var parts = w.Split('|');
+                    if (int.TryParse(parts[2], out int m))
+                        totalMinutes += m;
                 }
+
+                int goal = userGoals.ContainsKey(chatId) ? userGoals[chatId] : 0;
 
                 string stats = $"📈 Статистика:\n\n" +
                                $"Тренировок: {total}\n" +
-                               $"Общее время: {totalMinutes} мин";
+                               $"Минут: {totalMinutes}";
+
+                if (goal > 0)
+                {
+                    stats += $"\nЦель: {goal}\nПрогресс: {total}/{goal}";
+                }
 
                 await botClient.SendMessage(chatId, stats);
                 return;
             }
 
-            // 🗑️ удалить последнюю
+            // 🗑️ удалить
             if (text == "🗑️ Удалить последнюю")
             {
                 if (!userWorkouts.ContainsKey(chatId) || userWorkouts[chatId].Count == 0)
@@ -163,7 +197,7 @@ namespace TGBotV11
                 userWorkouts[chatId].RemoveAt(userWorkouts[chatId].Count - 1);
                 SaveData();
 
-                await botClient.SendMessage(chatId, "Последняя тренировка удалена 🗑️");
+                await botClient.SendMessage(chatId, "Удалено 🗑️");
                 return;
             }
         }
@@ -173,6 +207,7 @@ namespace TGBotV11
             Console.WriteLine(exception.Message);
             return Task.CompletedTask;
         }
+
         static void SaveData()
         {
             var json = JsonSerializer.Serialize(userWorkouts);
