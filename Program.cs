@@ -58,26 +58,53 @@ namespace TGBotV11
 
             var chatId = update.Message.Chat.Id;
             var text = update.Message.Text.Trim();
-
             var keyboard = new ReplyKeyboardMarkup(new[]
-            {
-                new KeyboardButton[]
 {
-    KeyboardButton.WithWebApp("📱 Открыть приложение", new WebAppInfo
+    new KeyboardButton[]
     {
-        Url = "https://tg-bot-production-2cc2.up.railway.app"
-    })
-}
-                new KeyboardButton[] { "🏋️ Добавить тренировку" },
-                new KeyboardButton[] { "📊 Мои отчёты" },
-                new KeyboardButton[] { "📈 Статистика" },
-                new KeyboardButton[] { "🎯 Моя цель" },
-                new KeyboardButton[] { "🍗 Питание" },
-                new KeyboardButton[] { "😵 Самочувствие" },
-                new KeyboardButton[] { "🔥 Стрик" },
-                new KeyboardButton[] { "🏆 Достижения" },
-                new KeyboardButton[] { "🗑️ Удалить последнюю" }
+        "🏋️ Добавить тренировку"
+    },
+    new KeyboardButton[]
+    {
+        "📊 Мои отчёты"
+    },
+    new KeyboardButton[]
+    {
+        "📈 Статистика"
+    },
+    new KeyboardButton[]
+    {
+        "🎯 Моя цель"
+    },
+    new KeyboardButton[]
+    {
+        "🍗 Питание"
+    },
+    new KeyboardButton[]
+    {
+        "😵 Самочувствие"
+    },
+    new KeyboardButton[]
+    {
+        "🔥 Стрик"
+    },
+    new KeyboardButton[]
+    {
+        "🏆 Достижения"
+    },
+    new KeyboardButton[]
+    {
+        KeyboardButton.WithWebApp("📱 Открыть приложение",
+            new WebAppInfo
+            {
+                Url = "https://tg-bot-production-2cc2.up.railway.app"
             })
+    },
+    new KeyboardButton[]
+    {
+        "🗑️ Удалить последнюю"
+    }
+})
             {
                 ResizeKeyboard = true
             };
