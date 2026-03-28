@@ -5,23 +5,65 @@
     <title>Fitness App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
-<body style="font-family: Arial; text-align:center; padding:20px;">
+<body style="font-family: Arial; background:#0f172a; color:white; padding:20px;">
 
-    <h1>💪 Fitness App</h1>
+    <h2>💪 Fitness App</h2>
 
-    <p id="user"></p>
+    <div id="user"></div>
 
-    <button onclick="alert('Тут будет функционал 😄')" 
-            style="padding:15px; font-size:18px;">
-        Нажми меня
-    </button>
+    <div style="margin-top:20px;">
+        <button onclick="showSection('stats')" style="width:100%;padding:15px;margin-bottom:10px;">📊 Статистика</button>
+        <button onclick="showSection('food')" style="width:100%;padding:15px;margin-bottom:10px;">🍗 Питание</button>
+        <button onclick="showSection('workout')" style="width:100%;padding:15px;margin-bottom:10px;">🏋️ Тренировка</button>
+    </div>
+
+    <div id="content" style="margin-top:20px;"></div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
         document.getElementById("user").innerText =
-            "Ты: " + (tg.initDataUnsafe?.user?.first_name || "unknown");
+            "Привет, " + (tg.initDataUnsafe?.user?.first_name || "спортсмен");
+
+        function showSection(type) {
+            let content = document.getElementById("content");
+
+            if (type === "stats") {
+                content.innerHTML = `
+                    <h3>📊 Статистика</h3>
+                    <p>Скоро тут будут твои данные...</p>
+                `;
+            }
+
+            if (type === "food") {
+                content.innerHTML = `
+                    <h3>🍗 Ввод питания</h3>
+                    <input placeholder="Калории" id="cal"><br><br>
+                    <input placeholder="Белки" id="prot"><br><br>
+                    <input placeholder="Жиры" id="fat"><br><br>
+                    <input placeholder="Углеводы" id="carb"><br><br>
+                    <button onclick="saveFood()">Сохранить</button>
+                `;
+            }
+
+            if (type === "workout") {
+                content.innerHTML = `
+                    <h3>🏋️ Добавить тренировку</h3>
+                    <input placeholder="Название" id="name"><br><br>
+                    <input placeholder="Минуты" id="time"><br><br>
+                    <button onclick="saveWorkout()">Сохранить</button>
+                `;
+            }
+        }
+
+        function saveFood() {
+            alert("Пока просто UI 😄 скоро подключим базу");
+        }
+
+        function saveWorkout() {
+            alert("Скоро будет запись в базу 🔥");
+        }
     </script>
 
 </body>

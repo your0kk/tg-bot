@@ -61,6 +61,13 @@ namespace TGBotV11
 
             var keyboard = new ReplyKeyboardMarkup(new[]
             {
+                new KeyboardButton[]
+{
+    KeyboardButton.WithWebApp("📱 Открыть приложение", new WebAppInfo
+    {
+        Url = "https://tg-bot-production-2cc2.up.railway.app"
+    })
+}
                 new KeyboardButton[] { "🏋️ Добавить тренировку" },
                 new KeyboardButton[] { "📊 Мои отчёты" },
                 new KeyboardButton[] { "📈 Статистика" },
