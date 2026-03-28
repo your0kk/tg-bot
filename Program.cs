@@ -31,6 +31,27 @@ namespace TGBotV11
 
             var port = Environment.GetEnvironmentVariable("PORT") ?? "3000";
             app.Urls.Add("http://0.0.0.0:" + port);
+            app.MapPost("/add-workout", async (HttpContext context) =>
+            {
+                var data = await context.Request.ReadFromJsonAsync<WorkoutRequest>();
+
+                if (data == null)
+                    return Results.BadRequest();
+
+                using var connection = new SqliteConnection(connectionString);
+                connection.Open();
+
+                var command = connection.CreateCommand();
+                command.CommandText = @"INSERT INTO workouts (userId, date, name, minutes) VALUES ($userId, $date, $name, $minutes);";
+                command.Parameters.AddWithValue("$userId", data.UserId);
+                command.Parameters.AddWithValue("$date", DateTime.Today.ToString("yyyy-MM-dd"));
+                command.Parameters.AddWithValue("$name", data.Name);
+                command.Parameters.AddWithValue("$minutes", data.Minutes);
+
+                command.ExecuteNonQuery();
+
+                return Results.Ok();
+            });
             app.RunAsync();
 
             var token = Environment.GetEnvironmentVariable("BOT_TOKEN");
@@ -664,6 +685,12 @@ namespace TGBotV11
             deleteCommand.ExecuteNonQuery();
 
             return true;
+        }
+        class WorkoutRequest
+        {
+            public long UserId { get; set; }
+            public string Name { get; set; } = "";
+            public int Minutes { get; set; }
         }
     }
 }
