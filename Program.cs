@@ -19,7 +19,7 @@ namespace TGBotV11
         static Dictionary<long, List<string>> userWorkouts = new Dictionary<long, List<string>>();
         static string filePath = "data.json";
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             var token = Environment.GetEnvironmentVariable("BOT_TOKEN");
 
@@ -29,17 +29,18 @@ namespace TGBotV11
 
             LoadData();
 
-            bot.StartReceiving
+            bot.StartReceiving(
                 updateHandler: HandleUpdate,
                 pollingErrorHandler: HandleError,
                 receiverOptions: new ReceiverOptions
                 {
                     AllowedUpdates = Array.Empty<UpdateType>()
                 }
-                );
+            );
 
             Console.WriteLine("Бот запущен...");
-            Console.ReadLine();
+
+            await Task.Delay(-1);
         }
 
         static async Task HandleUpdate(ITelegramBotClient botClient, Update update, CancellationToken ct)
