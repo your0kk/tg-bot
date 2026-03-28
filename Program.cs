@@ -30,7 +30,9 @@ namespace TGBotV11
             app.UseStaticFiles();
 
             var port = Environment.GetEnvironmentVariable("PORT") ?? "3000";
-            app.Run("http://0.0.0.0:" + port);
+            var port = Environment.GetEnvironmentVariable("PORT") ?? "3000";
+            app.Urls.Add("http://0.0.0.0:" + port);
+            app.RunAsync();
 
             var token = Environment.GetEnvironmentVariable("BOT_TOKEN");
 
