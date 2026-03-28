@@ -27,9 +27,8 @@ namespace TGBotV11
             var app = builder.Build();
 
             app.UseDefaultFiles();
-            app.UseStaticFiles();
+            app.UseStaticFiles()
 
-            var port = Environment.GetEnvironmentVariable("PORT") ?? "3000";
             var port = Environment.GetEnvironmentVariable("PORT") ?? "3000";
             app.Urls.Add("http://0.0.0.0:" + port);
             app.RunAsync();
