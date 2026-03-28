@@ -13,7 +13,7 @@ namespace TGBotV11
 {
     class Program
     {
-        static TelegramBotClient bot = new TelegramBotClient("8533175061:AAHDNDI0iGK1zWP7qc7X_JmNsaoNQqI-dTc");
+        static TelegramBotClient bot = new TelegramBotClient("BOT_TOKEN");
 
         static Dictionary<long, string> userStates = new Dictionary<long, string>();
         static Dictionary<long, List<string>> userWorkouts = new Dictionary<long, List<string>>();
