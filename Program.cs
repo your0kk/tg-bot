@@ -37,6 +37,7 @@ namespace TGBotV11
 
         static async Task HandleUpdate(ITelegramBotClient botClient, Update update, CancellationToken ct)
         {
+            Console.WriteLine("Пришло сообщение");
             if (update.Type != UpdateType.Message || update.Message?.Text == null)
                 return;
 
